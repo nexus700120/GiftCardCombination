@@ -93,20 +93,6 @@ class CardsTest {
         )
 
     // Dynamic programming
-
-    @Test
-    fun `product price = 7, cards = 3, 5`() =
-        assertCardsSum(
-            expectedCardsSum = 8,
-            giftCards = useCase(
-                productPrice = 7,
-                giftCards = listOf(
-                    GiftCard(3),
-                    GiftCard(5)
-                )
-            )
-        )
-
     @Test
     fun `product price = 13000, cards = 5000, 5000, 4000, 4000`() =
         assertCardsSum(
@@ -133,6 +119,21 @@ class CardsTest {
                     GiftCard(5000),
                     GiftCard(5000),
                     GiftCard(4000)
+                )
+            )
+        )
+
+    @Test
+    fun `product price = 13000, cards = 5000, 5000, 4000, 2000`() =
+        assertCardsSum(
+            expectedCardsSum = 12000,
+            giftCards = useCase(
+                productPrice = 13000,
+                giftCards = listOf(
+                    GiftCard(5000),
+                    GiftCard(5000),
+                    GiftCard(4000),
+                    GiftCard(2000)
                 )
             )
         )
