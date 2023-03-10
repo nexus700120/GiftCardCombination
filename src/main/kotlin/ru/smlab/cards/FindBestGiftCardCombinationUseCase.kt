@@ -68,37 +68,65 @@ class FindBestGiftCardCombinationUseCase {
             // For this purpose we use Euclidean algorithm
             // https://en.wikipedia.org/wiki/Euclidean_algorithm
             val gcd = greatestCommonDivisor(giftCards)
-            println("gcd = $gcd")
+            if (DEBUG_MODE) {
+                println("gcd = $gcd")
+            }
 
-            val table = buildTable(gcd, productPrice, giftCards)
-            fillTable(table, gcd)
-            println(table)
+            var table = buildInitialTable(gcd, productPrice, giftCards)
+            fillTable(table, 0, gcd)
+            if (DEBUG_MODE) {
+                println(table)
+            }
 
-            val needToPayCell = table.getCell(table.rowsSize - 1, table.columnsSize - 2)
+            val needToPayCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
             val needToPayCombination = needToPayCell?.giftCards ?: emptyList()
             val needToPaySum = productPrice - (needToPayCell?.sum ?: 0)
-            println(
-                "needToPaySum = $needToPaySum, " +
-                        "needToPayCombination = " +
-                        needToPayCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
-            )
+            if (DEBUG_MODE) {
+                println(
+                    "needToPaySum = $needToPaySum, " +
+                            "needToPayCombination = " +
+                            needToPayCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
+                )
+            }
             if (needToPaySum == 0) {
                 return needToPayCombination
             }
 
-            val burntSumCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
-            val burnSumCombination = burntSumCell?.giftCards ?: emptyList()
-            val burntSum = (burntSumCell?.sum ?: 0) - productPrice
-            println(
-                "burntSum = $burntSum, " +
-                        "burnSumCombination = " +
-                        burnSumCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
-            )
-            return if (needToPaySum > burntSum) {
-                burnSumCombination
-            } else {
-                needToPayCombination
+            // Try to find first burnt sum until productPrice + needToPaySum
+            var startBurntColumnIndex = table.columnsSize
+            var currentBurntColumnPrice = productPrice
+            if (currentBurntColumnPrice % gcd != 0) {
+                currentBurntColumnPrice = (currentBurntColumnPrice / gcd) * gcd
             }
+            while (currentBurntColumnPrice < productPrice + needToPaySum) {
+                currentBurntColumnPrice = (currentBurntColumnPrice + gcd)
+                    .coerceAtMost(productPrice + needToPaySum)
+                table = table.builder().addColumn(currentBurntColumnPrice).build()
+                fillTable(table, startBurntColumnIndex, gcd)
+                if (DEBUG_MODE) {
+                    println(table)
+                }
+                val burntSumCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
+                val burntSumCombination = burntSumCell?.giftCards ?: emptyList()
+                val burntSum = (burntSumCell?.sum ?: 0) - productPrice
+                if (DEBUG_MODE) {
+                    println(
+                        "burntSum = $burntSum, " +
+                                "burnSumCombination = " +
+                                burntSumCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
+                    )
+                }
+                if (burntSum > 0) {
+                    // We found first burnt sum
+                    return if (burntSum <= needToPaySum) {
+                        burntSumCombination
+                    } else {
+                        needToPayCombination
+                    }
+                }
+                startBurntColumnIndex++
+            }
+            return needToPayCombination
         }
 
         private fun greatestCommonDivisor(giftCards: List<GiftCard>): Int {
@@ -116,16 +144,15 @@ class FindBestGiftCardCombinationUseCase {
             return result
         }
 
-        private fun buildTable(gcd: Int, productPrice: Int, giftCards: List<GiftCard>): Table {
+        private fun buildInitialTable(gcd: Int, productPrice: Int, giftCards: List<GiftCard>): Table {
             val builder = Table.Builder()
-            var step = -gcd
-            repeat(productPrice / gcd + 3) { index ->
-                step = if (index == productPrice / gcd + 2) {
-                    gcd * (index - 1)
-                } else {
-                    (step + gcd).coerceAtMost(productPrice)
-                }
+            var step = 0
+            while (true) {
                 builder.addColumn(step)
+                if (step == productPrice) {
+                    break
+                }
+                step = (step + gcd).coerceAtMost(productPrice)
             }
             for (card in giftCards) {
                 builder.addRow(card.price)
@@ -133,10 +160,12 @@ class FindBestGiftCardCombinationUseCase {
             return builder.build()
         }
 
-        private fun fillTable(table: Table, gcd: Int) {
-            println("fillTable")
+        private fun fillTable(table: Table, startColumnIndex: Int, gcd: Int) {
+            if (DEBUG_MODE) {
+                println("fillTable")
+            }
             for (rowIndex in 0 until table.rowsSize) {
-                for (columnIndex in 0 until table.columnsSize) {
+                for (columnIndex in startColumnIndex until table.columnsSize) {
                     val columnProductPrice = table.productPrice(columnIndex)
                     val rowCardPrice = table.cardPrice(rowIndex)
 
@@ -195,6 +224,9 @@ class FindBestGiftCardCombinationUseCase {
                 table.getOrNull(rowIndex)?.set(columnIndex, cell)
             }
 
+            fun builder(): Builder =
+                Builder(columns, rows, table)
+
             // For debug only
             override fun toString(): String {
                 var maxCellWidth = max(
@@ -238,16 +270,31 @@ class FindBestGiftCardCombinationUseCase {
             )
 
             class Builder {
-                private val columns: MutableList<Int> = mutableListOf()
-                private val rows: MutableList<Int> = mutableListOf()
-                private val table: MutableList<MutableList<Cell>> = mutableListOf()
 
-                fun addColumn(productPriceStep: Int) {
-                    columns.add(productPriceStep)
+                private val columns: MutableList<Int>
+                private val rows: MutableList<Int>
+                private val table: MutableList<MutableList<Cell>>
+
+                constructor(
+                    initialColumns: MutableList<Int>,
+                    initialRows: MutableList<Int>,
+                    initialTable: MutableList<MutableList<Cell>>
+                ) {
+                    columns = initialColumns
+                    rows = initialRows
+                    table = initialTable
                 }
 
-                fun addRow(cardPrice: Int) {
+                constructor() : this(mutableListOf(), mutableListOf(), mutableListOf())
+
+                fun addColumn(productPriceStep: Int): Builder {
+                    columns.add(productPriceStep)
+                    return this
+                }
+
+                fun addRow(cardPrice: Int): Builder {
                     rows.add(cardPrice)
+                    return this
                 }
 
                 fun build(): Table {
@@ -264,5 +311,9 @@ class FindBestGiftCardCombinationUseCase {
                 }
             }
         }
+    }
+
+    companion object {
+        private const val DEBUG_MODE = false
     }
 }
