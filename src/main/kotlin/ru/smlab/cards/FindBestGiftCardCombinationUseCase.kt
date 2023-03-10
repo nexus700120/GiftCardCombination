@@ -71,7 +71,7 @@ class FindBestGiftCardCombinationUseCase {
             println("gcd = $gcd")
 
             var table = buildTable(gcd, productPrice, giftCards)
-            fillTable(table, 0)
+            fillTable(table, 0, gcd)
             println(table)
 
             val needToPayCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
@@ -85,8 +85,8 @@ class FindBestGiftCardCombinationUseCase {
             if (productPrice - needToPaySum > 0) {
                 val startColumnIndex = table.columnsSize
                 // Calculate burnt price
-                table = inflateTable(table, gcd, productPrice, productPrice + needToPaySum)
-                fillTable(table, startColumnIndex)
+                table = increaseTable(table, gcd, productPrice, productPrice + needToPaySum)
+                fillTable(table, startColumnIndex, gcd)
                 println(table)
 
                 val burntSumCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
@@ -138,7 +138,7 @@ class FindBestGiftCardCombinationUseCase {
             return builder.build()
         }
 
-        private fun inflateTable(table: Table, gcd: Int, productPrice: Int, newProductPrice: Int): Table {
+        private fun increaseTable(table: Table, gcd: Int, productPrice: Int, newProductPrice: Int): Table {
             val builder = table.builder()
             var step = (productPrice / gcd) * gcd + gcd
             if (step > newProductPrice) {
@@ -154,7 +154,7 @@ class FindBestGiftCardCombinationUseCase {
             return builder.build()
         }
 
-        private fun fillTable(table: Table, startColumnIndex: Int) {
+        private fun fillTable(table: Table, startColumnIndex: Int, gcd: Int) {
             println("fillTable")
             for (rowIndex in 0 until table.rowsSize) {
                 for (columnIndex in startColumnIndex until table.columnsSize) {
@@ -168,7 +168,10 @@ class FindBestGiftCardCombinationUseCase {
                     var freeSpaceCell: Table.Cell? = null
                     if (currentSum > 0 && columnProductPrice - currentSum > 0) {
                         // There is an empty space in the knapsack
-                        freeSpaceCell = table.getCell(rowIndex - 1, columnIndex - rowCardPrice)
+                        freeSpaceCell = table.getCell(
+                            rowIndex - 1,
+                            (columnProductPrice - currentSum) / gcd
+                        )
                         if (freeSpaceCell != null) {
                             currentSum += freeSpaceCell.sum
                         }
