@@ -138,6 +138,35 @@ class CardsTest {
             )
         )
 
+    @Test
+    fun `product price = 12799, cards = 5000, 4000, 4000`() =
+        assertCardsSum(
+            expectedCardsSum = 13000,
+            giftCards = useCase(
+                productPrice = 12799,
+                giftCards = listOf(
+                    GiftCard(5000),
+                    GiftCard(4000),
+                    GiftCard(4000)
+                )
+            )
+        )
+
+    @Test
+    fun `product price = 12799, cards = 5000, 5000, 2000, 4000`() =
+        assertCardsSum(
+            expectedCardsSum = 12000,
+            giftCards = useCase(
+                productPrice = 12799,
+                giftCards = listOf(
+                    GiftCard(5000),
+                    GiftCard(5000),
+                    GiftCard(2000),
+                    GiftCard(4000)
+                )
+            )
+        )
+
     private fun assertCardsSum(expectedCardsSum: Int, giftCards: List<GiftCard>) =
         assertEquals(expectedCardsSum, giftCards.sumOf { it.price })
 }
