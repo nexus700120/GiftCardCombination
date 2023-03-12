@@ -68,64 +68,14 @@ class FindBestGiftCardCombinationUseCase {
             // For this purpose we use Euclidean algorithm
             // https://en.wikipedia.org/wiki/Euclidean_algorithm
             val gcd = greatestCommonDivisor(giftCards)
-            if (DEBUG_MODE) {
-                println("gcd = $gcd")
-            }
-
-            var table = buildInitialTable(gcd, productPrice, giftCards)
-            fillTable(table, 0, gcd)
-            if (DEBUG_MODE) {
-                println(table)
-            }
-
-            val needToPayCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
-            val needToPayCombination = needToPayCell?.giftCards ?: emptyList()
-            val needToPaySum = productPrice - (needToPayCell?.sum ?: 0)
-            if (DEBUG_MODE) {
-                println(
-                    "needToPaySum = $needToPaySum, " +
-                            "needToPayCombination = " +
-                            needToPayCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
-                )
-            }
-            if (needToPaySum == 0) {
+            val table = buildInitialTable(gcd, productPrice, giftCards)
+            val (needToPaySum, needToPayCombination) = calculateNeedToPaySum(table, productPrice, gcd)
+            if (needToPaySum == 0)
                 return needToPayCombination
-            }
 
-            // Try to find first burnt sum until productPrice + needToPaySum
-            var startBurntColumnIndex = table.columnsSize
-            var currentBurntColumnPrice = productPrice
-            if (currentBurntColumnPrice % gcd != 0) {
-                currentBurntColumnPrice = (currentBurntColumnPrice / gcd) * gcd
-            }
-            while (currentBurntColumnPrice < productPrice + needToPaySum) {
-                currentBurntColumnPrice = (currentBurntColumnPrice + gcd)
-                    .coerceAtMost(productPrice + needToPaySum)
-                table = table.builder().addColumn(currentBurntColumnPrice).build()
-                fillTable(table, startBurntColumnIndex, gcd)
-                if (DEBUG_MODE) {
-                    println(table)
-                }
-                val burntSumCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
-                val burntSumCombination = burntSumCell?.giftCards ?: emptyList()
-                val burntSum = (burntSumCell?.sum ?: 0) - productPrice
-                if (DEBUG_MODE) {
-                    println(
-                        "burntSum = $burntSum, " +
-                                "burnSumCombination = " +
-                                burntSumCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
-                    )
-                }
-                if (burntSum > 0) {
-                    // We found first burnt sum
-                    return if (burntSum <= needToPaySum) {
-                        burntSumCombination
-                    } else {
-                        needToPayCombination
-                    }
-                }
-                startBurntColumnIndex++
-            }
+            val (burnSum, burnSumCombination) = calculateBurntSum(table, productPrice, needToPaySum, gcd)
+            if (burnSum in 1..needToPaySum)
+                return burnSumCombination
             return needToPayCombination
         }
 
@@ -141,7 +91,11 @@ class FindBestGiftCardCombinationUseCase {
                     break
                 }
             }
-            return result
+            return result.also {
+                if (DEBUG_MODE) {
+                    println("gcd = $it")
+                }
+            }
         }
 
         private fun buildInitialTable(gcd: Int, productPrice: Int, giftCards: List<GiftCard>): Table {
@@ -158,6 +112,63 @@ class FindBestGiftCardCombinationUseCase {
                 builder.addRow(card.price)
             }
             return builder.build()
+        }
+
+        private fun calculateNeedToPaySum(table: Table, productPrice: Int, gcd: Int): CalculationResult {
+            fillTable(table, 0, gcd)
+            if (DEBUG_MODE) {
+                println(table)
+            }
+
+            val needToPayCell = table.getCell(table.rowsSize - 1, table.columnsSize - 1)
+            val needToPayCombination = needToPayCell?.giftCards ?: emptyList()
+            val needToPaySum = productPrice - (needToPayCell?.sum ?: 0)
+            if (DEBUG_MODE) {
+                println(
+                    "needToPaySum = $needToPaySum, " +
+                            "needToPayCombination = " +
+                            needToPayCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
+                )
+            }
+            return CalculationResult(needToPaySum, needToPayCombination)
+        }
+
+        private fun calculateBurntSum(
+            table: Table,
+            productPrice: Int,
+            needToPaySum: Int,
+            gcd: Int
+        ): CalculationResult {
+            var localTable = table
+            var startColumnIndex = localTable.columnsSize
+            var currentColumnPrice = productPrice
+            if (currentColumnPrice % gcd != 0) {
+                currentColumnPrice = (currentColumnPrice / gcd) * gcd
+            }
+            while (currentColumnPrice < productPrice + needToPaySum) {
+                currentColumnPrice = (currentColumnPrice + gcd)
+                    .coerceAtMost(productPrice + needToPaySum)
+                localTable = localTable.builder().addColumn(currentColumnPrice).build()
+                fillTable(localTable, startColumnIndex, gcd)
+                if (DEBUG_MODE) {
+                    println(localTable)
+                }
+                val burntSumCell = localTable.getCell(localTable.rowsSize - 1, localTable.columnsSize - 1)
+                val burntSumCombination = burntSumCell?.giftCards ?: emptyList()
+                val burntSum = (burntSumCell?.sum ?: 0) - productPrice
+                if (DEBUG_MODE) {
+                    println(
+                        "burntSum = $burntSum, " +
+                                "burnSumCombination = " +
+                                burntSumCombination.joinToString(prefix = "[", postfix = "]") { it.price.toString() }
+                    )
+                }
+                if (burntSum > 0) {
+                    return CalculationResult(burntSum, burntSumCombination)
+                }
+                startColumnIndex++
+            }
+            return CalculationResult(0, emptyList())
         }
 
         private fun fillTable(table: Table, startColumnIndex: Int, gcd: Int) {
@@ -204,6 +215,11 @@ class FindBestGiftCardCombinationUseCase {
                 }
             }
         }
+
+        private data class CalculationResult(
+            val sum: Int,
+            val giftCards: List<GiftCard>
+        )
 
         private class Table private constructor(
             private val columns: MutableList<Int>,
