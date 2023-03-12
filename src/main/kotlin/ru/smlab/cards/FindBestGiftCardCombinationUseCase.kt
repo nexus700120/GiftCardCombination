@@ -74,9 +74,11 @@ class FindBestGiftCardCombinationUseCase {
                 return needToPayCombination
 
             val (burnSum, burnSumCombination) = calculateBurntSum(table, productPrice, needToPaySum, gcd)
-            if (burnSum in 1..needToPaySum)
-                return burnSumCombination
-            return needToPayCombination
+            return if (burnSum in 1..needToPaySum) {
+                burnSumCombination
+            } else {
+                needToPayCombination
+            }
         }
 
         private fun greatestCommonDivisor(giftCards: List<GiftCard>): Int {
