@@ -72,7 +72,6 @@ class FindBestGiftCardCombinationUseCase {
             val (needToPaySum, needToPayCombination) = calculateNeedToPaySum(table, productPrice, gcd)
             if (needToPaySum == 0)
                 return needToPayCombination
-
             val (burnSum, burnSumCombination) = calculateBurntSum(table, productPrice, needToPaySum, gcd)
             return if (burnSum in 1..needToPaySum) {
                 burnSumCombination
