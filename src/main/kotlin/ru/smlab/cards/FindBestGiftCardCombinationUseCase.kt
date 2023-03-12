@@ -191,26 +191,22 @@ class FindBestGiftCardCombinationUseCase {
                             rowIndex - 1,
                             (columnProductPrice - currentSum) / gcd
                         )
-                        if (freeSpaceCell != null) {
-                            currentSum += freeSpaceCell.sum
-                        }
                     }
+                    currentSum += freeSpaceCell?.sum ?: 0
+                    if (cellAboveSum == 0 && currentSum == 0)
+                        continue
 
-                    if (cellAboveSum > 0 || currentSum > 0) {
-                        if (cellAboveSum > currentSum) {
-                            table.setCell(rowIndex, columnIndex, cellAbove!!)
-                        } else {
-                            val cell = Table.Cell(
+                    if (cellAboveSum > currentSum) {
+                        table.setCell(rowIndex, columnIndex, cellAbove!!)
+                    } else {
+                        table.setCell(
+                            rowIndex,
+                            columnIndex,
+                            Table.Cell(
                                 currentSum,
-                                buildList {
-                                    add(GiftCard(rowCardPrice))
-                                    if (freeSpaceCell != null) {
-                                        addAll(freeSpaceCell.giftCards)
-                                    }
-                                }
+                                listOf(GiftCard(rowCardPrice)) + (freeSpaceCell?.giftCards ?: emptyList())
                             )
-                            table.setCell(rowIndex, columnIndex, cell)
-                        }
+                        )
                     }
                 }
             }
